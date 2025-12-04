@@ -1,49 +1,51 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
-  <title>Voice Room 🚀</title>
-  <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+<meta charset="utf-8">
+<title>Voice Room</title>
+<script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
 </head>
+
 <body>
+<h2>Voice Room läuft 🚀</h2>
 
-  <h2>Voice Room läuft 🚀</h2>
-  <button onclick="join()">Join Room</button>
-  <button onclick="leave()">Leave Room</button>
+<button onclick="join()">Join Room</button>
+<button onclick="leave()">Leave Room</button>
 
-  <script>
-    // DEINE WERTE HIER EINTRAGEN:
-    const appId  = "a393d43e6ca144c7a9f3146ffa414aac";
-    const token  = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
-    const channel = "testroom";
+<script>
+// 🔥 DEINE WERTE HIER EINTRAGEN 🔥
+const appId = "a393d43e6ca144c7a9f3146ffa414aac";
+const token = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
+const channel = "testroom";
 
-    const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    let localAudioTrack;
+const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+let localAudioTrack;
 
-    async function join() {
-      try {
-        await client.join(appId, channel, token, null);   // Token wird mitgegeben
+async function join(){
+    try{
+        await client.join(appId, channel, token, null); 
         localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         await client.publish(localAudioTrack);
-        alert("Du bist jetzt im Voice Room 🎧");
-      } catch (e) {
-        alert("Fehler beim Join: " + e.message);
-      }
+        alert("Du bist jetzt im Voice Room 🎤");
+    }catch(e){
+        alert("❌ Fehler beim Join: " + e.message);
     }
+}
 
-    async function leave() {
-      try {
-        if (localAudioTrack) {
-          localAudioTrack.stop();
-          localAudioTrack.close();
+async function leave(){
+    try{
+        if(localAudioTrack){
+            localAudioTrack.stop();
+            localAudioTrack.close();
         }
         await client.leave();
         alert("Du hast den Raum verlassen");
-      } catch (e) {
-        alert("Fehler beim Verlassen: " + e.message);
-      }
+    }catch(e){
+        alert("❌ Fehler beim Verlassen: " + e.message);
     }
-  </script>
+}
+</script>
 
 </body>
 </html>
+
