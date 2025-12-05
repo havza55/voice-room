@@ -8,7 +8,7 @@
     body {
       margin: 0;
       padding: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
       background: #ffffff;
       color: #222;
     }
@@ -29,17 +29,19 @@
     button {
       border: none;
       border-radius: 18px;
-      padding: 6px 12px;
+      padding: 6px 14px;
       font-size: 14px;
       cursor: pointer;
     }
     .join {
       background: #00b894;
       color: white;
+      width: 90px;
     }
     .leave {
       background: #eeeeee;
       color: #444;
+      width: 90px;
     }
     .room-label {
       font-size: 12px;
@@ -51,49 +53,42 @@
 <body>
   <div class="wrapper">
     <h2>Voice Room läuft 🚀</h2>
-    <div class="room-label" id="roomLabel"></div>
-
+    <div class="room-label">Channel: testroom</div>
     <div class="buttons">
-      <button class="join" onclick="join()">🔊 Beitreten</button>
-      <button class="leave" onclick="leave()">❌ Verlassen</button>
+      <button class="join" onclick="join()">Beitreten</button>
+      <button class="leave" onclick="leave()">Verlassen</button>
     </div>
   </div>
 
   <script>
-    // Agora Daten
+    // Agora-Daten (deine Werte eintragen)
     const appId  = "a393d43e6ca144c7a9f3146ffa414aac";
     const token  = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
-
-    // Channel aus URL lesen (?room=XYZ)
-    const params = new URLSearchParams(window.location.search);
-    const channel = params.get("room") || "testroom";
-
-    // Anzeige des Channel-Namens
-    document.getElementById("roomLabel").innerText = "Channel: " + channel;
+    const channel = "testroom";  // fester Kanal für Tests
 
     const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
     let localAudioTrack;
 
-    async function join(){
-      try{
+    async function join() {
+      try {
         await client.join(appId, channel, token, null);
         localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         await client.publish(localAudioTrack);
         alert("Du bist jetzt im Voice Room 🎤");
-      }catch(e){
+      } catch(e) {
         alert("❌ Fehler beim Join: " + e.message);
       }
     }
 
-    async function leave(){
-      try{
-        if(localAudioTrack){
+    async function leave() {
+      try {
+        if (localAudioTrack) {
           localAudioTrack.stop();
           localAudioTrack.close();
         }
         await client.leave();
         alert("Du hast den Raum verlassen");
-      }catch(e){
+      } catch(e) {
         alert("❌ Fehler beim Verlassen: " + e.message);
       }
     }
