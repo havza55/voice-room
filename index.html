@@ -57,8 +57,16 @@
     <div class="room-label">Channel: testroom</div>
 
     <!-- Live User Liste -->
-    <h3>👥 Teilnehmer:</h3>
-    <ul id="userList"></ul>
+    <h3>👥 Teilnehmer: <span id="participantCount">0</span></h3>
+
+<ul id="participants"></ul>
+
+<button id="moreButton"
+        onclick="toggleMore()"
+        style="display:none; margin-top:4px; font-size:12px;">
+  Alle anzeigen
+</button>
+
 
     <div class="buttons">
         <button class="join" onclick="join()">Beitreten</button>
@@ -67,64 +75,129 @@
 </div>
 
 <script>
-/* Agora Keys */
-const appId = "a393d43e6ca144c7a9f3146ffa414aac";
-const token = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
-const channel = "testroom";
+// ==== Agora-Konfiguration – HIER DEINE WERTE EINTRAGEN ====
+const appId  = 'a393d43e6ca144c7a9f3146ffa414aac';          // <- deine App ID aus Agora
+const token  = '007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=';            // <- dein (Temp-)Token
+const channel = 'testroom';                  // <- dein Test-Channelname
 
-const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-let localAudioTrack;
-let users = {}; // Speichert Teilnehmer
+// ==== Agora-Client ====
+const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
+let localAudioTrack = null;
+let localUid = null;
 
+// ==== Teilnehmer-Verwaltung ====
+const participants = new Map(); // Map<uid, true>
+
+const listEl  = document.getElementById('participants');
+const countEl = document.getElementById('participantCount');
+const moreBtn = document.getElementById('moreButton');
+
+let showAll = false;        // ob alle angezeigt werden sollen
+const maxToShow = 3;        // wie viele Teilnehmer standardmäßig gezeigt werden
+
+function renderParticipants() {
+  const uids = Array.from(participants.keys());
+
+  // Anzahl anzeigen
+  countEl.textContent = uids.length.toString();
+
+  // Liste leeren
+  listEl.innerHTML = '';
+
+  // Nur erste maxToShow oder alle
+  const toShow = showAll ? uids : uids.slice(0, maxToShow);
+
+  toShow.forEach(uid => {
+    const li = document.createElement('li');
+    li.textContent = 'User ' + uid;
+    listEl.appendChild(li);
+  });
+
+  // Button "Alle anzeigen / Weniger anzeigen"
+  if (uids.length > maxToShow) {
+    moreBtn.style.display = 'inline-block';
+    moreBtn.textContent = showAll
+      ? 'Weniger anzeigen'
+      : `Alle anzeigen (${uids.length})`;
+  } else {
+    moreBtn.style.display = 'none';
+  }
+}
+
+function toggleMore() {
+  showAll = !showAll;
+  renderParticipants();
+}
+
+// ==== Funktionen: Raum beitreten / verlassen ====
 async function join() {
-    try {
-        await client.join(appId, channel, token, null);
+  try {
+    // User dem Channel beitreten lassen
+    localUid = await client.join(appId, channel, token || null, null);
 
-        // Mikrofon aktivieren
-        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        await client.publish(localAudioTrack);
+    // lokalen User in die Liste aufnehmen
+    participants.set(localUid, true);
+    renderParticipants();
 
-        alert("🎤 Du bist dem Raum beigetreten!");
+    // Mikrofonspur erstellen + veröffentlichen
+    localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+    await client.publish(localAudioTrack);
 
-        client.on("user-joined", handleUserJoin);
-        client.on("user-left", handleUserLeave);
-
-    } catch (e) { alert("❌ Fehler: " + e.message); }
+    alert('Du bist jetzt im Voice Room 🎧');
+  } catch (e) {
+    alert('❌ Fehler beim Join: ' + e.message);
+  }
 }
 
 async function leave() {
-    try {
-        if(localAudioTrack){
-            localAudioTrack.stop();
-            localAudioTrack.close();
-        }
-        client.leave();
-        alert("👋 Raum verlassen");
-        document.getElementById("userList").innerHTML = "";
-    } catch (e) { alert("❌ Fehler: " + e.message); }
-}
-
-// User Events -----------------------
-
-function handleUserJoin(user) {
-    users[user.uid] = user;
-    updateUserList();
-}
-
-function handleUserLeave(user) {
-    delete users[user.uid];
-    updateUserList();
-}
-
-function updateUserList() {
-    const list = document.getElementById("userList");
-    list.innerHTML = "";
-    for (let id in users) {
-        let li = document.createElement("li");
-        li.textContent = "User " + id;
-        list.appendChild(li);
+  try {
+    // Lokale Audiotrack stoppen / freigeben
+    if (localAudioTrack) {
+      localAudioTrack.stop();
+      localAudioTrack.close();
+      localAudioTrack = null;
     }
+
+    // Lokalen User aus der Teilnehmerliste entfernen
+    if (localUid !== null) {
+      participants.delete(localUid);
+      localUid = null;
+      renderParticipants();
+    }
+
+    await client.leave();
+    alert('Du hast den Raum verlassen');
+  } catch (e) {
+    alert('❌ Fehler beim Verlassen: ' + e.message);
+  }
 }
+
+// ==== Remote-Teilnehmer behandeln ====
+
+// Wenn ein anderer User etwas publiziert (z.B. Audio)
+client.on('user-published', async (user, mediaType) => {
+  try {
+    await client.subscribe(user, mediaType);
+
+    if (mediaType === 'audio') {
+      const remoteAudioTrack = user.audioTrack;
+      remoteAudioTrack.play();  // du hörst ihn
+    }
+
+    // Remote-User zur Teilnehmerliste hinzufügen
+    participants.set(user.uid, true);
+    renderParticipants();
+  } catch (e) {
+    console.error('Fehler bei user-published:', e);
+  }
+});
+
+// Wenn ein User den Raum verlässt
+client.on('user-left', (user) => {
+  participants.delete(user.uid);
+  renderParticipants();
+});
 </script>
+
 </body>
 </html>
