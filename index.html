@@ -51,47 +51,80 @@
 </head>
 
 <body>
-  <div class="wrapper">
+<div class="wrapper">
+
     <h2>Voice Room läuft 🚀</h2>
     <div class="room-label">Channel: testroom</div>
+
+    <!-- Live User Liste -->
+    <h3>👥 Teilnehmer:</h3>
+    <ul id="userList"></ul>
+
     <div class="buttons">
-      <button class="join" onclick="join()">Beitreten</button>
-      <button class="leave" onclick="leave()">Verlassen</button>
+        <button class="join" onclick="join()">Beitreten</button>
+        <button class="leave" onclick="leave()">Verlassen</button>
     </div>
-  </div>
+</div>
 
-  <script>
-    // Agora-Daten (deine Werte eintragen)
-    const appId  = "a393d43e6ca144c7a9f3146ffa414aac";
-    const token  = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
-    const channel = "testroom";  // fester Kanal für Tests
+<script>
+/* Agora Keys */
+const appId = "a393d43e6ca144c7a9f3146ffa414aac";
+const token = "007eJxTYIguO7XkTEW4TkTPz7/vvT447lN44Ppdv/kmw6vayNIfywwVGBKNLY1TTIxTzZITDU1Mks0TLdOMDU3M0tISTQxNEhOTv742zGwIZGSonnKPkZEBAkF8DoaS1OKSovz8XAYGAMFXJL8=";
+const channel = "testroom";
 
-    const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
-    let localAudioTrack;
+const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+let localAudioTrack;
+let users = {}; // Speichert Teilnehmer
 
-    async function join() {
-      try {
+async function join() {
+    try {
         await client.join(appId, channel, token, null);
+
+        // Mikrofon aktivieren
         localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
         await client.publish(localAudioTrack);
-        alert("Du bist jetzt im Voice Room 🎤");
-      } catch(e) {
-        alert("❌ Fehler beim Join: " + e.message);
-      }
-    }
 
-    async function leave() {
-      try {
-        if (localAudioTrack) {
-          localAudioTrack.stop();
-          localAudioTrack.close();
+        alert("🎤 Du bist dem Raum beigetreten!");
+
+        client.on("user-joined", handleUserJoin);
+        client.on("user-left", handleUserLeave);
+
+    } catch (e) { alert("❌ Fehler: " + e.message); }
+}
+
+async function leave() {
+    try {
+        if(localAudioTrack){
+            localAudioTrack.stop();
+            localAudioTrack.close();
         }
-        await client.leave();
-        alert("Du hast den Raum verlassen");
-      } catch(e) {
-        alert("❌ Fehler beim Verlassen: " + e.message);
-      }
+        client.leave();
+        alert("👋 Raum verlassen");
+        document.getElementById("userList").innerHTML = "";
+    } catch (e) { alert("❌ Fehler: " + e.message); }
+}
+
+// User Events -----------------------
+
+function handleUserJoin(user) {
+    users[user.uid] = user;
+    updateUserList();
+}
+
+function handleUserLeave(user) {
+    delete users[user.uid];
+    updateUserList();
+}
+
+function updateUserList() {
+    const list = document.getElementById("userList");
+    list.innerHTML = "";
+    for (let id in users) {
+        let li = document.createElement("li");
+        li.textContent = "User " + id;
+        list.appendChild(li);
     }
-  </script>
+}
+</script>
 </body>
 </html>
