@@ -1,203 +1,78 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="utf-8">
+  <meta charset="utf-8" />
   <title>Voice Room</title>
-  <script src="https://download.agora.io/sdk/release/AgoraRTC_N.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    body {
+    html, body {
       margin: 0;
-      padding: 8px;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #ffffff;
-      color: #222;
+      padding: 0;
+      height: 100%;
     }
-    .wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 8px;
-    }
-    h2 {
-      margin: 0 0 4px 0;
-      font-size: 18px;
-    }
-    .buttons {
-      display: flex;
-      gap: 8px;
-    }
-    button {
-      border: none;
-      border-radius: 18px;
-      padding: 6px 14px;
-      font-size: 14px;
-      cursor: pointer;
-    }
-    .join {
-      background: #00b894;
-      color: white;
-      width: 90px;
-    }
-    .leave {
-      background: #eeeeee;
-      color: #444;
-      width: 90px;
-    }
-    .room-label {
-      font-size: 12px;
-      color: #777;
+    #root {
+      width: 100vw;
+      height: 100vh;
     }
   </style>
 </head>
-
 <body>
-<div class="wrapper">
+  <div id="root"></div>
 
-    <h2>Voice Room läuft 🚀</h2>
-    <div class="room-label">Channel: testroom</div>
+  <!-- ZEGO UIKit einbinden -->
+  <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
 
-    <!-- Live User Liste -->
-    <h3>👥 Teilnehmer: <span id="participantCount">0</span></h3>
+  <script>
+    // --- Raum- & User-Daten aus der URL lesen (für Adalo) ---
+    const params   = new URLSearchParams(window.location.search);
+    const roomID   = params.get("room")   || "testroom";
+    const userID   = params.get("userId") || (Math.floor(Math.random() * 100000) + "");
+    const userName = params.get("name")   || ("User " + userID);
 
-<ul id="participants"></ul>
+    // --- DEINE ZEGO-DATEN HIER EINTRAGEN ---
+    const appID = 142993488;          // <--- Deine AppID (Zahl)
+    const serverSecret = "9e6e26527d4a432184bcb5e173276c22";  // <--- ServerSecret aus ZEGO-Konsole
 
-<button id="moreButton"
-        onclick="toggleMore()"
-        style="display:none; margin-top:4px; font-size:12px;">
-  Alle anzeigen
-</button>
+    // Achtung: ServerSecret ist geheim. Für Tests ok,
+    // später in Produktion sollte der Token von einem Backend kommen.
 
+    // Kit-Token erzeugen
+    const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+      appID,
+      serverSecret,
+      roomID,
+      userID,
+      userName
+    );
 
-    <div class="buttons">
-        <button class="join" onclick="join()">Beitreten</button>
-        <button class="leave" onclick="leave()">Verlassen</button>
-    </div>
-</div>
+    // ZEGO-Instanz erstellen
+    const zp = ZegoUIKitPrebuilt.create(kitToken);
 
-<script>
-// ==== Agora-Konfiguration – HIER DEINE WERTE EINTRAGEN ====
-const appId  = 'a393d43e6ca144c7a9f3146ffa414aac';          // <- deine App ID aus Agora
-const token  = '007eJxTYAhK3+D165rkl4MrG0NzdkS6vg+OfHFx5YZn/l6vU/T3Xr+jwGBqmmSZZJGWlGJhZGmSbJicaJ6cam6RZpFmlGKYaGFkkepsnNkQyMjw4nolAyMUgvgcDCWpxSVF+fm5DAwA51UkzA==';            // <- dein (Temp-)Token
-const channel = 'testroom';                  // <- dein Test-Channelname
+    // Raum beitreten (Audio-only mit Chat & Member-Liste)
+    zp.joinRoom({
+      container: document.getElementById("root"),
 
-// ==== Agora-Client ====
-const client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' });
-let localAudioTrack = null;
-let localUid = null;
+      scenario: {
+        mode: ZegoUIKitPrebuilt.GroupCall
+      },
 
-// ==== Teilnehmer-Verwaltung ====
-const participants = new Map(); // Map<uid, true>
+      // Audio-only
+      turnOnMicrophoneWhenJoining: true,
+      turnOnCameraWhenJoining: false,
+      showMyCameraToggleButton: false,
+      showScreenSharingButton: false,
 
-const listEl  = document.getElementById('participants');
-const countEl = document.getElementById('participantCount');
-const moreBtn = document.getElementById('moreButton');
+      // UI-Einstellungen (Buttons & Layout)
+      layout: "Grid",
+      showLayoutButton: false,
+      showTextChat: true,
+      showUserList: true,
+      showOnlyAudioUser: true,
+      maxUsers: 7,  // Host + 6 Sprecher
 
-let showAll = false;        // ob alle angezeigt werden sollen
-const maxToShow = 3;        // wie viele Teilnehmer standardmäßig gezeigt werden
-
-function renderParticipants() {
-  const uids = Array.from(participants.keys());
-
-  // Anzahl anzeigen
-  countEl.textContent = uids.length.toString();
-
-  // Liste leeren
-  listEl.innerHTML = '';
-
-  // Nur erste maxToShow oder alle
-  const toShow = showAll ? uids : uids.slice(0, maxToShow);
-
-  toShow.forEach(uid => {
-    const li = document.createElement('li');
-    li.textContent = 'User ' + uid;
-    listEl.appendChild(li);
-  });
-
-  // Button "Alle anzeigen / Weniger anzeigen"
-  if (uids.length > maxToShow) {
-    moreBtn.style.display = 'inline-block';
-    moreBtn.textContent = showAll
-      ? 'Weniger anzeigen'
-      : `Alle anzeigen (${uids.length})`;
-  } else {
-    moreBtn.style.display = 'none';
-  }
-}
-
-function toggleMore() {
-  showAll = !showAll;
-  renderParticipants();
-}
-
-// ==== Funktionen: Raum beitreten / verlassen ====
-async function join() {
-  try {
-    // User dem Channel beitreten lassen
-    localUid = await client.join(appId, channel, token || null, null);
-
-    // lokalen User in die Liste aufnehmen
-    participants.set(localUid, true);
-    renderParticipants();
-
-    // Mikrofonspur erstellen + veröffentlichen
-    localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
-    await client.publish(localAudioTrack);
-
-    alert('Du bist jetzt im Voice Room 🎧');
-  } catch (e) {
-    alert('❌ Fehler beim Join: ' + e.message);
-  }
-}
-
-async function leave() {
-  try {
-    // Lokale Audiotrack stoppen / freigeben
-    if (localAudioTrack) {
-      localAudioTrack.stop();
-      localAudioTrack.close();
-      localAudioTrack = null;
-    }
-
-    // Lokalen User aus der Teilnehmerliste entfernen
-    if (localUid !== null) {
-      participants.delete(localUid);
-      localUid = null;
-      renderParticipants();
-    }
-
-    await client.leave();
-    alert('Du hast den Raum verlassen');
-  } catch (e) {
-    alert('❌ Fehler beim Verlassen: ' + e.message);
-  }
-}
-
-// ==== Remote-Teilnehmer behandeln ====
-
-// Wenn ein anderer User etwas publiziert (z.B. Audio)
-client.on('user-published', async (user, mediaType) => {
-  try {
-    await client.subscribe(user, mediaType);
-
-    if (mediaType === 'audio') {
-      const remoteAudioTrack = user.audioTrack;
-      remoteAudioTrack.play();  // du hörst ihn
-    }
-
-    // Remote-User zur Teilnehmerliste hinzufügen
-    participants.set(user.uid, true);
-    renderParticipants();
-  } catch (e) {
-    console.error('Fehler bei user-published:', e);
-  }
-});
-
-// Wenn ein User den Raum verlässt
-client.on('user-left', (user) => {
-  participants.delete(user.uid);
-  renderParticipants();
-});
-</script>
-
+      // Optional: PreJoin-View ausblenden, direkt rein
+      showPreJoinView: false
+    });
+  </script>
 </body>
 </html>
