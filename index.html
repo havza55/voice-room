@@ -1,42 +1,62 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>Voice Room</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Wichtig für Handy-Ansicht -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+
+  <!-- ZEGOCLOUD UIKIT einbinden -->
+  <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+
+  <!-- Dark Premium Look -->
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: #050814; /* sehr dunkles Blau/Schwarz */
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
     }
+
     #root {
       width: 100vw;
       height: 100vh;
+      box-sizing: border-box;
+      background: #050814;
+      border-top: 3px solid #F4C045; /* Gold-Akzent oben */
+    }
+
+    /* Kleiner Feinschliff, falls Zego Buttons Standardfarben haben */
+    button {
+      font-family: inherit;
     }
   </style>
 </head>
 <body>
+  <!-- Container für das Zego UI -->
   <div id="root"></div>
 
-  <!-- ZEGO UIKit einbinden -->
-  <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
-
   <script>
-    // --- Raum- & User-Daten aus der URL lesen (für Adalo) ---
+    // -------- URL-Parameter auslesen (von Adalo übergeben) --------
+    // Adalo-URL: ...index.html?room={Room raumname}&user={User full name}
+
     const params   = new URLSearchParams(window.location.search);
-    const roomID   = params.get("room")   || "testroom";
-    const userID   = params.get("userId") || (Math.floor(Math.random() * 100000) + "");
-    const userName = params.get("name")   || ("User " + userID);
+    const roomID   = params.get("room") || "testroom";
+    const userName = params.get("user") || ("User_" + Math.floor(Math.random() * 100000));
+    const userID   = String(Math.floor(Math.random() * 1000000));
 
-    // --- DEINE ZEGO-DATEN HIER EINTRAGEN ---
-    const appID = 142993488;          // <--- Deine AppID (Zahl)
-    const serverSecret = "9e6e26527d4a432184bcb5e173276c22";  // <--- ServerSecret aus ZEGO-Konsole
+    // -------- DEINE ZEGOCLOUD-DATEN HIER EINTRAGEN --------
+    // TODO: Diese zwei Werte mit deinen echten Daten ersetzen!
+    const appID = 142993488;          // z.B. 142993488 (als Zahl, ohne Anführungszeichen)
+    const serverSecret = "9e6e26527d4a432184bcb5e173276c22";    // lange Zeichenkette aus der Zego-Konsole
 
-    // Achtung: ServerSecret ist geheim. Für Tests ok,
-    // später in Produktion sollte der Token von einem Backend kommen.
-
-    // Kit-Token erzeugen
+    // Hinweis:
+    // generateKitTokenForTest ist nur für Tests gedacht.
+    // In Produktion solltest du das Token sicher auf deinem Server erzeugen.
     const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
       appID,
       serverSecret,
@@ -45,32 +65,41 @@
       userName
     );
 
-    // ZEGO-Instanz erstellen
+    // -------- ZEGOCLOUD UIKIT INITIALISIEREN --------
     const zp = ZegoUIKitPrebuilt.create(kitToken);
 
-    // Raum beitreten (Audio-only mit Chat & Member-Liste)
     zp.joinRoom({
       container: document.getElementById("root"),
 
+      // Link zum Teilen (z.B. später für "Share Room"-Funktion)
+      sharedLinks: [
+        {
+          name: "Room Link",
+          url: window.location.href
+        }
+      ],
+
+      // Nur Audio, Gruppen-Voice-Room
       scenario: {
         mode: ZegoUIKitPrebuilt.GroupCall
       },
 
-      // Audio-only
-      turnOnMicrophoneWhenJoining: true,
+      // Audio-Only Einstellungen
       turnOnCameraWhenJoining: false,
       showMyCameraToggleButton: false,
+      showCameraToggleButton: false,
       showScreenSharingButton: false,
 
-      // UI-Einstellungen (Buttons & Layout)
-      layout: "Grid",
-      showLayoutButton: false,
-      showTextChat: true,
-      showUserList: true,
-      showOnlyAudioUser: true,
-      maxUsers: 7,  // Host + 6 Sprecher
+      // UI-Elemente
+      showTextChat: true,          // Chat sichtbar
+      showUserList: true,          // Member-Liste sichtbar
+      showLeaveRoomConfirmDialog: true,
 
-      // Optional: PreJoin-View ausblenden, direkt rein
+      // Layout / Sitzplätze
+      layout: "Grid",              // sauberes Raster-Layout
+      maxUsers: 7,                 // Host + 6 Sprecher
+
+      // Optional: Pre-Join-Ansicht überspringen -> direkt rein
       showPreJoinView: false
     });
   </script>
