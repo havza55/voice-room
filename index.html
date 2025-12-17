@@ -3,12 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <title>Voice Room</title>
+
+  <!-- Für Mobile-Ansicht (wichtig für FlutterFlow-WebView) -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 
-  <!-- ZEGOCLOUD UIKIT – offizielle CDN-URL -->
-  <script src="https://cdn.zegocloud.com/prebuilt/latest/ZegoUIKitPrebuilt.js"></script>
+  <!-- ZEGOCLOUD UIKit Prebuilt (offizielle CDN-URL) -->
+  <script src="https://unpkg.com/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
 
-  <!-- Dark + Gold Premium Look -->
+  <!-- Dark Premium Look -->
   <style>
     html, body {
       margin: 0;
@@ -16,7 +18,7 @@
       height: 100%;
       width: 100%;
       overflow: hidden;
-      background: #050814;              /* sehr dunkles Blau/Schwarz */
+      background: #050814;      /* dunkles Blau/Schwarz */
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       color: #ffffff;
     }
@@ -26,125 +28,106 @@
       height: 100vh;
       box-sizing: border-box;
       background: #050814;
-      border-top: 3px solid #F4C040;    /* Gold-Akzent oben */
+      border-top: 3px solid #F4C042; /* Gold-Akzent oben */
     }
 
-    /* Text im Zego-UI etwas glätten (falls Buttons eigene Fonts haben, bleiben sie erhalten) */
-    button {
-      font-family: inherit;
-    }
-
-    /* Fehleranzeige, falls SDK nicht lädt */
     .error {
-      height: 100%;
-      width: 100%;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       text-align: center;
+      height: 100%;
+      width: 100%;
+      color: #ffdd66;
       padding: 16px;
       box-sizing: border-box;
-      color: #ffffff;
       font-size: 16px;
       line-height: 1.4;
     }
 
-    .error-title {
-      color: #F4C040;
-      font-weight: 600;
-      margin-bottom: 8px;
+    button {
+      font-family: inherit;
     }
   </style>
 </head>
 
 <body>
-  <!-- Container für das Zego-UI -->
+  <!-- Container für das Zego UI -->
   <div id="root"></div>
 
   <script>
-    (function () {
-      const root = document.getElementById('root');
+    // --------- Hilfsfunktion: Query-Parameter auslesen ----------
+    function getQueryParam(name) {
+      const params = new URLSearchParams(window.location.search);
+      return params.get(name);
+    }
 
-      function showError(message) {
-        root.innerHTML = `
-          <div class="error">
-            <div class="error-title">Fehler beim Laden des Voice Rooms</div>
-            <div>${message}</div>
-          </div>
-        `;
-      }
+    // --------- Raum + User aus URL (von FlutterFlow übergeben) ----------
+    const roomID = getQueryParam("room") || "testroom";
+    const userName = getQueryParam("user") || ("User_" + Math.floor(Math.random() * 100000));
+    const userID = String(Math.floor(Math.random() * 1000000000));
 
-      // Prüfen, ob SDK wirklich geladen wurde
-      if (!window.ZegoUIKitPrebuilt) {
-        showError("ZEGOCLOUD-SDK konnte nicht geladen werden. Prüfe deine Internetverbindung und die Script-URL.");
-        return;
-      }
+    // --------- DEINE ZEGOCLOUD DATEN HIER EINTRAGEN ----------
+    // ACHTUNG: appID ist eine Zahl (ohne Anführungszeichen),
+    // serverSecret ist eine Zeichenkette (mit Anführungszeichen).
+    const appID = 142993488;                 // z.B. 142993488
+    const serverSecret = "9e6e26527d4a432184bcb5e173276c22";  // z.B. "9e6e265...276c22"
 
-      // URL-Parameter auslesen (von Adalo: ?room=...&user=...)
-      const params   = new URLSearchParams(window.location.search);
-      const roomID   = params.get("room") || "testroom";
-      const userName = params.get("user") || ("User " + Math.floor(Math.random() * 100000));
-      const userID   = String(Math.floor(Math.random() * 10000000));
+    // Wenn das Script nicht geladen wurde, gibt es kein ZegoUIKitPrebuilt
+    if (typeof ZegoUIKitPrebuilt === "undefined") {
+      const root = document.getElementById("root");
+      root.innerHTML = '<div class="error">Fehler beim Laden des Voice Rooms<br/>ZEGOCLOUD-SDK konnte nicht geladen werden.<br/>Bitte überprüfe die Internetverbindung und die Script-URL.</div>';
+    } else {
+      // --------- Token erzeugen (nur für Test) ----------
+      // Hinweis: generateKitTokenForTest ist nur für Entwicklung!
+      const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        appID,
+        serverSecret,
+        roomID,
+        userID,
+        userName
+      );
 
-      // ---- DEINE ZEGOCLOUD-DATEN HIER EINTRAGEN ----
-      const appID = 142993488;                  // <-- deine AppID (als Zahl)
-      const serverSecret = "9e6e26527d4a432184bcb5e173276c22"; // <-- dein ServerSecret (als String)
-      // ----------------------------------------------
+      // --------- ZEGOCLOUD UIKIT INITIALISIEREN ----------
+      const zp = ZegoUIKitPrebuilt.create(kitToken);
 
-      try {
-        // Kit-Token erzeugen (nur für Tests)
-        const kitToken = ZegoUIKitPrebuilt.generateKitTokenForTest(
-          appID,
-          serverSecret,
-          roomID,
-          userID,
-          userName
-        );
+      zp.joinRoom({
+        container: document.getElementById("root"),
 
-        // Zego-Instanz erstellen
-        const zp = ZegoUIKitPrebuilt.create(kitToken);
-
-        // Voice-Room joinen
-        zp.joinRoom({
-          container: root,
-
-          // Link, den man später teilen könnte
-          sharedLinks: [
-            {
-              name: "Room Link",
-              url: window.location.href
-            }
-          ],
-
-          // Nur Audio, Gruppen-Voice-Room
-          scenario: {
-            mode: ZegoUIKitPrebuilt.GroupCall
+        // Link zum Teilen (später für "Share Room")
+        sharedLinks: [
+          {
+            name: "Room Link",
+            url: window.location.href,
           },
+        ],
 
-          // Audio-Only Einstellungen
-          turnOnCameraWhenJoining: false,
-          showMyCameraToggleButton: false,
-          showCameraToggleButton: false,
-          showScreenSharingButton: false,
+        // Nur Audio, Gruppen-Voice-Room
+        scenario: {
+          mode: ZegoUIKitPrebuilt.GroupCall,
+        },
 
-          // UI-Elemente
-          showTextChat: true,
-          showUserList: true,
-          showLeaveRoomConfirmDialog: true,
+        // Audio-only Einstellungen
+        turnOnCameraWhenJoining: false,
+        turnOnMicrophoneWhenJoining: true,
+        showMyCameraToggleButton: false,
+        showMyMicrophoneToggleButton: true,
+        showScreenSharingButton: false,
 
-          // Layout / Sitzplätze (sauberes Raster)
-          layout: "Grid",
-          maxUsers: 7, // Host + 6 Sprecher
+        // UI-Elemente
+        showTextChat: true,              // Chat sichtbar
+        showUserList: true,              // Member-Liste sichtbar
+        showLeaveRoomConfirmDialog: true,
 
-          // Direkt in den Raum, ohne Pre-Join-Dialog
-          showPreJoinView: false
-        });
-      } catch (e) {
-        console.error(e);
-        showError("Interner Fehler: " + (e && e.message ? e.message : e));
-      }
-    })();
+        // Layout / Sitzplätze – sauberes Rasterlayout
+        layout: "Grid",
+        maxUsers: 7,                     // Host + 6 Sprecher
+
+        // Direkt rein, ohne Pre-Join
+        showPreJoinView: false,
+      });
+    }
   </script>
 </body>
 </html>
+
